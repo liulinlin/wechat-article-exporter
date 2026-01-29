@@ -103,10 +103,18 @@ export async function proxyMpRequest(options: RequestOptions) {
     }
   }
 
-  // 这里是否需要执行？
   // 更新 CookieStore 中的 cookie
   else {
-    // updateCookies(options.event, mpResponse.headers.getSetCookie());
+    // 获取微信返回的 set-cookie
+    const setCookiesFromWx = mpResponse.headers.getSetCookie();
+
+    // 如果微信返回了新的 Cookie，更新到 CookieStore
+    if (setCookiesFromWx && setCookiesFromWx.length > 0) {
+      // 异步更新，不阻塞响应
+      updateCookies(options.event, setCookiesFromWx).catch(err => {
+        console.error('Background cookie update failed:', err);
+      });
+    }
   }
 
   // 构造返回给客户端的响应
@@ -139,9 +147,28 @@ export function getAuthKeyFromRequest(event: H3Event): string {
   return authKey;
 }
 
-// function updateCookies(event: H3Event, cookies: string[]): void {
-//   const authKey = getAuthKeyFromRequest(event);
-//   if (authKey) {
-//     cookieStore.updateCookie(authKey, cookies);
-//   }
-// }
+/**
+ * 更新 CookieStore 中的 Cookie
+ * @param event H3Event
+ * @param cookies 微信返回的 set-cookie 数组
+ */
+async function updateCookies(event: H3Event, cookies: string[]): Promise<void> {
+  // 如果没有新的 Cookie，直接返回
+  if (!cookies || cookies.length === 0) {
+    return;
+  }
+
+  const authKey = getAuthKeyFromRequest(event);
+  if (!authKey) {
+    return;
+  }
+
+  try {
+    const success = await cookieStore.updateCookie(authKey, cookies);
+    if (success) {
+      console.log(`Cookie updated for authKey: ${authKey.substring(0, 8)}...`);
+    }
+  } catch (error) {
+    console.error('updateCookies failed:', error);
+  }
+}

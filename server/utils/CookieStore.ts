@@ -1,5 +1,5 @@
 import { H3Event, parseCookies } from 'h3';
-import { CookieKVValue, getMpCookie, setMpCookie } from '~/server/kv/cookie';
+import { CookieKVValue, getMpCookie, removeMpCookie, setMpCookie } from '~/server/kv/cookie';
 
 // 表示一条 set-cookie 记录的解析结果
 export type CookieEntity = Record<string, string | number>;
@@ -43,9 +43,29 @@ export class AccountCookie {
     return this._token;
   }
 
-  // 根据 cookie 中的 expires 来确定是否已过期
+  /**
+   * 检查 Cookie 是否已过期
+   * 检查所有 Cookie 的 expires_timestamp，只要有一个过期就返回 true
+   */
   public get isExpired(): boolean {
-    // todo
+    const now = Date.now();
+
+    // 查找最早过期的 Cookie
+    for (const cookie of this._cookie) {
+      // 跳过没有过期时间的 Cookie（session cookie）
+      if (!cookie.expires_timestamp) {
+        continue;
+      }
+
+      const expiryTime = cookie.expires_timestamp as number;
+
+      // 如果有任何 Cookie 已过期，返回 true
+      if (now >= expiryTime) {
+        return true;
+      }
+    }
+
+    // 所有 Cookie 都未过期
     return false;
   }
 
@@ -104,6 +124,38 @@ export class AccountCookie {
       .map(cookie => `${cookie.name}=${cookie.value}`)
       .join('; ');
   }
+
+  /**
+   * 更新 Cookie（合并新的 Cookie）
+   * @param newCookies 新的 set-cookie 字符串数组
+   */
+  public updateCookies(newCookies: string[]): void {
+    if (!newCookies || newCookies.length === 0) {
+      return;
+    }
+
+    const parsedNewCookies = AccountCookie.parse(newCookies);
+
+    // 创建一个 Map 用于快速查找和去重
+    const cookieMap = new Map<string, CookieEntity>();
+
+    // 先添加现有的 Cookie
+    for (const cookie of this._cookie) {
+      if (cookie.name) {
+        cookieMap.set(cookie.name as string, cookie);
+      }
+    }
+
+    // 用新的 Cookie 覆盖或添加
+    for (const newCookie of parsedNewCookies) {
+      if (newCookie.name) {
+        cookieMap.set(newCookie.name as string, newCookie);
+      }
+    }
+
+    // 更新内部 Cookie 数组
+    this._cookie = Array.from(cookieMap.values());
+  }
 }
 
 // 所有用户的 cookie 仓库
@@ -139,6 +191,18 @@ class CookieStore {
     if (!accountCookie) {
       return null;
     }
+
+    // 检查 Cookie 是否已过期
+    if (accountCookie.isExpired) {
+      console.warn(`Cookie expired for authKey: ${authKey.substring(0, 8)}...`);
+      // 清理过期的 Cookie（内存 + KV 存储）
+      this.store.delete(authKey);
+      removeMpCookie(authKey).catch(err => {
+        console.error('Failed to remove expired cookie from KV:', err);
+      });
+      return null;
+    }
+
     return accountCookie.toString();
   }
 
@@ -165,6 +229,25 @@ class CookieStore {
     }
 
     return accountCookie.token;
+  }
+
+  /**
+   * 更新用户的 Cookie
+   * @param authKey 用户标识
+   * @param newCookies 原始的 set-cookie 字符串数组
+   */
+  async updateCookie(authKey: string, newCookies: string[]): Promise<boolean> {
+    const accountCookie = await this.getAccountCookie(authKey);
+    if (!accountCookie) {
+      console.warn(`updateCookie: authKey ${authKey} not found`);
+      return false;
+    }
+
+    // 更新内存中的 Cookie
+    accountCookie.updateCookies(newCookies);
+
+    // 持久化到 KV
+    return await setMpCookie(authKey, accountCookie.toJSON());
   }
 
   /**
