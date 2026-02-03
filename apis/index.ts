@@ -3,8 +3,6 @@ import { ACCOUNT_LIST_PAGE_SIZE, ARTICLE_LIST_PAGE_SIZE } from '~/config';
 import { updateArticleCache } from '~/store/v2/article';
 import { type MpAccount, updateLastUpdateTime } from '~/store/v2/info';
 import type { CommentResponse } from '~/types/comment';
-import type { ParsedCredential } from '~/types/credential';
-import type { ParsedProfileGetMsg, ProfileGetMsgResponse } from '~/types/profile_getmsg';
 import type {
   AccountInfo,
   AppMsgEx,
@@ -13,6 +11,8 @@ import type {
   PublishPage,
   SearchBizResponse,
 } from '~/types/types';
+import type { ParsedCredential } from '~/types/credential';
+import type { ParsedProfileGetMsg, ProfileGetMsgResponse } from '~/types/profile_getmsg';
 
 const loginAccount = useLoginAccount();
 const credentials = useLocalStorage<ParsedCredential[]>('auto-detect-credentials:credentials', []);
