@@ -40,6 +40,7 @@ export default defineNuxtConfig({
       kv: {
         driver: process.env.NITRO_KV_DRIVER || 'memory',
         base: process.env.NITRO_KV_BASE,
+        binding: 'KV',
       },
     },
   },
