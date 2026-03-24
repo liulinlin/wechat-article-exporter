@@ -4,7 +4,6 @@ import { request } from '#shared/utils/request';
 import LoginModal from '~/components/modal/Login.vue';
 import StorageUsage from '~/components/StorageUsage.vue';
 import { IMAGE_PROXY } from '~/config';
-import type { LogoutResponse } from '~/types/types';
 
 const loginAccount = useLoginAccount();
 const modal = useModal();
@@ -79,13 +78,14 @@ const logoutBtnLoading = ref(false);
 
 async function logout() {
   logoutBtnLoading.value = true;
-  const { statusCode, statusText } = await request<LogoutResponse>('/api/web/mp/logout');
-  if (statusCode === 200) {
+  try {
+    await request<LogoutResponse>('/api/web/mp/logout');
+  } catch {
+    // 无论服务端是否成功，均清理本地登录状态
+  } finally {
     loginAccount.value = null;
-  } else {
-    alert(statusText);
+    logoutBtnLoading.value = false;
   }
-  logoutBtnLoading.value = false;
 }
 
 let timer: number;
