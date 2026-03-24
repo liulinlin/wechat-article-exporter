@@ -2,7 +2,7 @@
 
 **日期：** 2026-03-24
 **状态：** 待实现
-**影响范围：** `server/utils/CookieStore.ts`、`server/kv/cookie.ts`
+**影响范围：** `server/utils/CookieStore.ts`、`server/kv/cookie.ts`、`server/api/web/mp/logout.get.ts`
 
 ---
 
@@ -31,7 +31,7 @@
 
 ### 文件 1：`server/kv/cookie.ts`
 
-新增 `deleteMpCookie` 函数，用于登出时从 KV 中删除条目：
+新增 `deleteMpCookie` 函数，用于登出时从 KV 中删除条目。`removeItem` 失败时直接抛出异常（与 `setMpCookie` 不同，登出场景下调用方需感知失败，不应静默吞掉错误）：
 
 ```typescript
 export async function deleteMpCookie(key: CookieKVKey): Promise<void> {
@@ -47,8 +47,8 @@ export async function deleteMpCookie(key: CookieKVKey): Promise<void> {
 - `maxSize: number` 字段
 - `evictIfNeeded()` 私有方法
 - `getAccountCookie` 中的内存读写路径（命中返回 + 写回缓存）
-- `setCookie` 中的内存写操作
-- `toJSON()` 方法（依赖内存 Map，无外部调用方）
+- `setCookie` 中的 `this.store.delete(authKey)`、`this.evictIfNeeded()` 以及 `this.store.set(authKey, accountCookie)` 三行内存操作
+- `toJSON()` 方法（依赖内存 Map；已确认全库无外部调用方，实现前可通过全局搜索 `toJSON` 二次核实）
 
 **改后的 `CookieStore` 方法实现：**
 
@@ -79,6 +79,18 @@ async getToken(authKey: string): Promise<string | null> {
   if (!accountCookie) return null;
   return accountCookie.token;
 }
+```
+
+### 文件 3：`server/api/web/mp/logout.get.ts`
+
+`removeCookie` 由同步变为异步，需加 `await`：
+
+```typescript
+// 改前
+cookieStore.removeCookie(authKey);
+
+// 改后
+await cookieStore.removeCookie(authKey);
 ```
 
 ---
