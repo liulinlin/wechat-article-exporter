@@ -23,10 +23,10 @@ export default defineEventHandler(async event => {
     },
   });
 
-  // 登出后清理内存中的 cookie 缓存
+  // 登出后立即从 KV 中删除 session，使 auth-key 立即失效
   const authKey = getRequestHeader(event, 'X-Auth-Key') || parseCookies(event)['auth-key'];
   if (authKey) {
-    cookieStore.removeCookie(authKey);
+    await cookieStore.removeCookie(authKey);
   }
 
   return {
