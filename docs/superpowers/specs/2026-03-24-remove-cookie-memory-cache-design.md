@@ -2,7 +2,7 @@
 
 **日期：** 2026-03-24
 **状态：** 待实现
-**影响范围：** `server/utils/CookieStore.ts`、`server/kv/cookie.ts`、`server/api/web/mp/logout.get.ts`
+**影响范围：** `server/utils/CookieStore.ts`、`server/kv/cookie.ts`、`server/api/web/mp/logout.get.ts`、`server/api/_debug.get.ts`
 
 ---
 
@@ -48,7 +48,7 @@ export async function deleteMpCookie(key: CookieKVKey): Promise<void> {
 - `evictIfNeeded()` 私有方法
 - `getAccountCookie` 中的内存读写路径（命中返回 + 写回缓存）
 - `setCookie` 中的 `this.store.delete(authKey)`、`this.evictIfNeeded()` 以及 `this.store.set(authKey, accountCookie)` 三行内存操作
-- `toJSON()` 方法（依赖内存 Map；已确认全库无外部调用方，实现前可通过全局搜索 `toJSON` 二次核实）
+- `toJSON()` 方法（依赖内存 Map；`server/api/_debug.get.ts` 是唯一调用方，该文件同步更新为返回固定提示，不再依赖内存 dump）
 
 **改后的 `CookieStore` 方法实现：**
 
