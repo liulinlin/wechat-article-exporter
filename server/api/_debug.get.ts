@@ -1,13 +1,7 @@
-import { cookieStore } from '~/server/utils/CookieStore';
-
-interface DebugQuery {
-  key: string;
-}
-
 export default defineEventHandler(async event => {
-  const { key } = getQuery<DebugQuery>(event);
+  const { key } = getQuery<{ key: string }>(event);
   if (key && key === process.env.DEBUG_KEY) {
-    return cookieStore.toJSON();
+    return { message: 'In-memory cookie cache has been removed. Auth data is stored in KV only.' };
   } else {
     return 'not set debug key';
   }
