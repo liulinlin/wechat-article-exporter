@@ -226,6 +226,27 @@ const columnDefs = ref<ColDef[]>([
     cellClass: 'flex justify-center items-center',
   },
   {
+    headerName: '是否付费',
+    field: 'is_pay_subscribe',
+    valueGetter: p => p.data && p.data.is_pay_subscribe === 1,
+    cellDataType: 'boolean',
+    filter: 'agSetColumnFilter',
+    filterParams: createBooleanColumnFilterParams('付费', '免费'),
+    minWidth: 150,
+    initialHide: true,
+    cellClass: 'flex justify-center items-center',
+  },
+  {
+    headerName: '付费金额',
+    field: 'wecoin_count',
+    valueFormatter: p => (p.value ? `${p.value} 微币` : ''),
+    cellDataType: 'number',
+    filter: 'agNumberColumnFilter',
+    minWidth: 120,
+    initialHide: true,
+    cellClass: 'flex justify-center items-center font-mono',
+  },
+  {
     headerName: '文章类型',
     field: 'item_show_type',
     valueFormatter: p => formatItemShowType(p.value),
@@ -545,7 +566,7 @@ function copyWechatLink() {
               { label: 'Txt', event: 'export-article-text' },
               { label: 'Markdown', event: 'export-article-markdown' },
               { label: 'Word (内测中)', event: 'export-article-word' },
-              // { label: 'PDF (计划中)', event: 'export-article-pdf', disabled: true },
+              { label: 'PDF (内测中)', event: 'export-article-pdf' },
             ]"
             @export-article-excel="exportFile('excel', selectedArticleUrls)"
             @export-article-json="exportFile('json', selectedArticleUrls)"
@@ -553,6 +574,7 @@ function copyWechatLink() {
             @export-article-text="exportFile('text', selectedArticleUrls, contentNotDownloadedCount)"
             @export-article-markdown="exportFile('markdown', selectedArticleUrls, contentNotDownloadedCount)"
             @export-article-word="exportFile('word', selectedArticleUrls, contentNotDownloadedCount)"
+            @export-article-pdf="exportFile('pdf', selectedArticleUrls, contentNotDownloadedCount)"
           >
             <UButton
               :loading="exportBtnLoading"

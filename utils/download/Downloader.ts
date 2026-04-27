@@ -163,11 +163,14 @@ export class Downloader extends BaseDownloader {
       return;
     }
 
+    // 付费文章需要使用 credential 来获取完整内容
+    const withCredential = article.is_pay_subscribe === 1;
+
     for (let attempt = 0; attempt < this.options.maxRetries; attempt++) {
       const proxy = this.proxyManager.getBestProxy();
 
       try {
-        const blob = await this.download(article.fakeid, url, proxy, false);
+        const blob = await this.download(article.fakeid, url, proxy, withCredential);
         const html = await blob.text();
         const [status, commentID] = validateHTMLContent(html);
         if (status === 'Success') {
@@ -372,7 +375,7 @@ export class Downloader extends BaseDownloader {
         const proxy = this.proxyManager.getBestProxy();
 
         try {
-          const response = await this.fetchComments(article.fakeid, cached.commentID!, buffer, proxy);
+          const response = await this.fetchComments(article.fakeid, cached.commentID!, buffer, proxy, article.appmsgid, article.itemidx);
           this.proxyManager.recordSuccess(proxy);
 
           if (response.base_resp.ret === 0) {
@@ -418,7 +421,9 @@ export class Downloader extends BaseDownloader {
             cached.commentID!,
             comment.content_id,
             comment.reply_new.max_reply_id,
-            proxy
+            proxy,
+            article.appmsgid,
+            article.itemidx
           );
           this.proxyManager.recordSuccess(proxy);
 
@@ -456,7 +461,9 @@ export class Downloader extends BaseDownloader {
     fakeid: string,
     commentID: string,
     buffer: string,
-    proxy: string
+    proxy: string,
+    appmsgid: number,
+    itemidx: number
   ): Promise<CommentResponse> {
     const abortController = new AbortController();
     this.abortControllers.set(commentID, abortController);
@@ -469,8 +476,15 @@ export class Downloader extends BaseDownloader {
       }
 
       const Authorization = (preferences.value as Preferences).privateProxyAuthorization || '';
-      const url = `https://mp.weixin.qq.com/mp/appmsg_comment?action=getcomment&__biz=${targetCredential.biz}&comment_id=${commentID}&uin=${targetCredential.uin}&key=${targetCredential.key}&pass_ticket=${targetCredential.pass_ticket}&buffer=${buffer}&offset=1&limit=100&f=json`;
-      const proxyUrl = `${proxy}?url=${encodeURIComponent(url)}&authorization=${Authorization}`;
+      const url = `https://mp.weixin.qq.com/mp/appmsg_comment?action=getcomment&scene=0&appmsgid=${appmsgid}&idx=${itemidx}&__biz=${targetCredential.biz}&comment_id=${commentID}&uin=${targetCredential.uin}&key=${targetCredential.key}&pass_ticket=${encodeURIComponent(targetCredential.pass_ticket)}&appmsg_token=${encodeURIComponent(targetCredential.appmsg_token)}&wxtoken=777&devicetype=UnifiedPCMac&comment_scene=0&buffer=${buffer}&offset=0&limit=100&x5=0&f=json`;
+      const headers: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 MicroMessenger/6.8.0(0x16080000) NetType/WIFI MiniProgramEnv/Mac MacWechat/WECHAT/WeChatBrowser XWEB/1191',
+        'Referer': 'https://mp.weixin.qq.com/',
+      };
+      if (targetCredential.cookie) {
+        headers.Cookie = targetCredential.cookie;
+      }
+      const proxyUrl = `${proxy}?url=${encodeURIComponent(url)}&headers=${encodeURIComponent(JSON.stringify(headers))}&authorization=${Authorization}`;
       const response = (await Promise.race([
         fetch(proxyUrl, {
           signal: abortController.signal,
@@ -495,7 +509,9 @@ export class Downloader extends BaseDownloader {
     commentID: string,
     contentID: string,
     maxReplyID: number,
-    proxy: string
+    proxy: string,
+    appmsgid: number,
+    itemidx: number
   ): Promise<ReplyResponse> {
     const abortController = new AbortController();
     this.abortControllers.set(commentID + ':' + contentID, abortController);
@@ -508,8 +524,15 @@ export class Downloader extends BaseDownloader {
       }
 
       const Authorization = (preferences.value as Preferences).privateProxyAuthorization || '';
-      const url = `https://mp.weixin.qq.com/mp/appmsg_comment?action=getcommentreply&__biz=${targetCredential.biz}&comment_id=${commentID}&uin=${targetCredential.uin}&key=${targetCredential.key}&pass_ticket=${targetCredential.pass_ticket}&content_id=${contentID}&max_reply_id=${maxReplyID}&limit=100&f=json`;
-      const proxyUrl = `${proxy}?url=${encodeURIComponent(url)}&authorization=${Authorization}`;
+      const url = `https://mp.weixin.qq.com/mp/appmsg_comment?action=getcommentreply&scene=0&appmsgid=${appmsgid}&idx=${itemidx}&__biz=${targetCredential.biz}&comment_id=${commentID}&uin=${targetCredential.uin}&key=${targetCredential.key}&pass_ticket=${encodeURIComponent(targetCredential.pass_ticket)}&appmsg_token=${encodeURIComponent(targetCredential.appmsg_token)}&wxtoken=777&devicetype=UnifiedPCMac&content_id=${contentID}&max_reply_id=${maxReplyID}&limit=100&x5=0&f=json`;
+      const headers: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 MicroMessenger/6.8.0(0x16080000) NetType/WIFI MiniProgramEnv/Mac MacWechat/WECHAT/WeChatBrowser XWEB/1191',
+        'Referer': 'https://mp.weixin.qq.com/',
+      };
+      if (targetCredential.cookie) {
+        headers.Cookie = targetCredential.cookie;
+      }
+      const proxyUrl = `${proxy}?url=${encodeURIComponent(url)}&headers=${encodeURIComponent(JSON.stringify(headers))}&authorization=${Authorization}`;
       const response = (await Promise.race([
         fetch(proxyUrl, {
           signal: abortController.signal,
@@ -546,15 +569,18 @@ export class Downloader extends BaseDownloader {
     let commentNum = 0;
 
     try {
-      const appmsg_bar_data = cgiData.user_info.appmsg_bar_data;
-      readNum = appmsg_bar_data.read_num; // 阅读量
-      oldLikeNum = appmsg_bar_data.old_like_count; //点赞
-      shareNum = appmsg_bar_data.share_count; //分享
-      likeNum = appmsg_bar_data.like_count; // 喜欢
-      commentNum = appmsg_bar_data.comment_count; // 留言
+      const barData = cgiData.user_info?.appmsg_bar_data
+        || cgiData.appmsg_bar_data
+        || cgiData.user_info;
+      if (barData) {
+        readNum = barData.read_num || 0; // 阅读量
+        oldLikeNum = barData.old_like_count || 0; // 点赞
+        shareNum = barData.share_count || 0; // 分享
+        likeNum = barData.like_count || 0; // 喜欢
+        commentNum = barData.comment_count || 0; // 留言
+      }
     } catch (e) {
-      console.error('解析对象失败:', e);
-      return;
+      console.warn('解析元数据失败，使用默认值:', e);
     }
 
     const article = await getArticleByLink(url);

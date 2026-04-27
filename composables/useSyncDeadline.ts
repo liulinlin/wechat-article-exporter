@@ -11,6 +11,8 @@ export default () => {
 
     const start = dayjs().add(1, 'days').startOf('day');
     switch (syncDateRange) {
+      case '24h':
+        return dayjs().subtract(24, 'hours');
       case '1d':
         return start.subtract(1, 'days');
       case '3d':
@@ -49,10 +51,11 @@ export default () => {
   }
 
   function getActualDateRange() {
-    const now = dayjs().format('YYYY-MM-DD');
+    const format = 'YYYY-MM-DD HH:mm';
+    const now = dayjs().format(format);
     const deadline = getDeadline();
 
-    return now + ' ~ ' + deadline.format('YYYY-MM-DD');
+    return now + ' ~ ' + deadline.format(format);
   }
 
   /**
@@ -60,6 +63,10 @@ export default () => {
    */
   function getSelectOptions() {
     return [
+      {
+        value: '24h',
+        label: '最近24小时',
+      },
       {
         value: '1d',
         label: '最近一天',
@@ -99,9 +106,28 @@ export default () => {
     ];
   }
 
+  /**
+   * 获取当前同步范围的可读标签
+   */
+  function getSyncRangeLabel(): string {
+    const syncDateRange = (preferences.value as unknown as Preferences).syncDateRange;
+    const option = getSelectOptions().find(o => o.value === syncDateRange);
+    return option?.label ?? '全部';
+  }
+
+  /**
+   * 当前同步范围是否为全部
+   */
+  function isSyncAll(): boolean {
+    const syncDateRange = (preferences.value as unknown as Preferences).syncDateRange;
+    return syncDateRange === 'all';
+  }
+
   return {
     getSyncTimestamp,
     getActualDateRange,
     getSelectOptions,
+    getSyncRangeLabel,
+    isSyncAll,
   };
 };
