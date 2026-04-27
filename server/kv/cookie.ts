@@ -11,8 +11,7 @@ export async function setMpCookie(key: CookieKVKey, data: CookieKVValue): Promis
   const kv = useStorage('kv');
   try {
     await kv.set<CookieKVValue>(`cookie:${key}`, data, {
-      // https://developers.cloudflare.com/kv/api/write-key-value-pairs/#expiring-keys
-      expirationTtl: 60 * 60 * 24 * 4, // 4 days
+      ttl: 60 * 60 * 24 * 4, // 4 days
     });
     return true;
   } catch (err) {

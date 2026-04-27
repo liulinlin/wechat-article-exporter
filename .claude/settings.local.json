@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(yarn build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(find server/api -name \"*.ts\" -exec grep -l \"getRequestHeader\" {})",
+      "Bash(xargs cat:*)",
+      "Bash(git checkout *)",
+      "Bash(cat wrangler.toml)",
+      "Bash(cat wrangler.json)"
+    ]
+  }
+}

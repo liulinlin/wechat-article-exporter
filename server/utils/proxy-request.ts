@@ -101,6 +101,7 @@ export async function proxyMpRequest(options: RequestOptions) {
       }
 
       console.log('token', token);
+      console.log('set-cookie headers:', mpResponse.headers.getSetCookie());
       const success = await cookieStore.setCookie(authKey, token, mpResponse.headers.getSetCookie());
       if (!success) {
         throw new Error('cookie 写入 KV 存储失败');
