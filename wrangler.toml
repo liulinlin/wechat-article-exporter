@@ -5,3 +5,4 @@ pages_build_output_dir = "./dist"
 [[kv_namespaces]]
 binding = "kv"
 id = "41511fe145ac49cf8fb9b6e024662a60"
+# wechat-article-exporter-kv
