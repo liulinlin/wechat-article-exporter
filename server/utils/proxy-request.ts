@@ -11,6 +11,15 @@ import { logRequest, logResponse } from '~/server/utils/logger';
  * @description 备注：只有登录请求(`action=login`)中的 `set-cookie` 才会被写入到 CookieStore 中
  * @param options 请求参数
  */
+function resolveEndpoint(endpoint: string): string {
+  const { proxyHosts } = useRuntimeConfig();
+  if (!proxyHosts) return endpoint;
+  const hosts = proxyHosts.split(',').map((h: string) => h.trim()).filter(Boolean);
+  if (!hosts.length) return endpoint;
+  const host = hosts[Math.floor(Math.random() * hosts.length)];
+  return endpoint.replace('https://mp.weixin.qq.com', host);
+}
+
 export async function proxyMpRequest(options: RequestOptions) {
   const runtimeConfig = useRuntimeConfig();
 
@@ -32,6 +41,8 @@ export async function proxyMpRequest(options: RequestOptions) {
     headers: headers,
     redirect: options.redirect || 'follow',
   };
+
+  options.endpoint = resolveEndpoint(options.endpoint);
 
   // 处理参数
   if (options.query) {
