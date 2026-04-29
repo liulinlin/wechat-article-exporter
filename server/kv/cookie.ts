@@ -6,6 +6,7 @@ export interface CookieKVValue {
   token: string;
   cookies: CookieEntity[];
   nickname?: string;
+  expires?: number;
 }
 
 export async function setMpCookie(key: CookieKVKey, data: CookieKVValue): Promise<boolean> {
@@ -19,7 +20,7 @@ export async function setMpCookie(key: CookieKVKey, data: CookieKVValue): Promis
       .sort((a, b) => a - b)[0];
     const ttl = minExpires ? Math.floor((minExpires - now) / 1000) : 60 * 60 * 24 * 4;
 
-    await kv.set<CookieKVValue>(`cookie:${key}`, data, { ttl });
+    await kv.set<CookieKVValue>(`cookie:${key}`, { ...data, expires: Date.now() + ttl * 1000 }, { ttl });
     return true;
   } catch (err) {
     console.error('kv.set call failed:', err);

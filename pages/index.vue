@@ -7,12 +7,12 @@ const loading = ref(false);
 const msg = ref('');
 const authKey = ref('');
 const timer = ref<number | null>(null);
-const sessions = ref<{ authKey: string; nickname: string }[]>([]);
+const sessions = ref<{ authKey: string; nickname: string; expires: number }[]>([]);
 const showLogin = ref(false);
 onMounted(async () => {
   loading.value = true;
   try {
-    const resp = await request<{ sessions: { authKey: string; nickname: string }[] }>('/api/public/v1/sessions');
+    const resp = await request<{ sessions: { authKey: string; nickname: string; expires: number }[] }>('/api/public/v1/sessions');
     sessions.value = resp.sessions ?? [];
     if (sessions.value.length === 0) {
       showLogin.value = true;
@@ -79,7 +79,7 @@ async function bizLogin() {
     qrcodeSrc.value = '';
     if (timer.value) clearTimeout(timer.value);
     showLogin.value = false;
-    sessions.value = [{ authKey: authKey.value, nickname: resp.nickname }, ...sessions.value];
+    sessions.value = [{ authKey: authKey.value, nickname: resp.nickname, expires: Date.now() + 4 * 24 * 60 * 60 * 1000 }, ...(sessions.value ?? [])];
   } catch (e: any) {
     msg.value = e.message;
   } finally {
@@ -109,6 +109,7 @@ function startNewLogin() {
         <p class="text-slate-600 text-sm">已登录的公众号：</p>
         <div v-for="s in sessions" :key="s.authKey" class="px-3 py-2 rounded border border-slate-200 bg-slate-50">
           <div class="text-sm font-medium text-slate-700">{{ s.nickname || s.authKey }}</div>
+          <div v-if="s.expires" class="text-xs text-slate-400 mt-0.5">过期：{{ new Date(s.expires).toLocaleString() }}</div>
         </div>
         <UButton variant="outline" class="mt-2" @click="startNewLogin">新增登录</UButton>
       </div>
