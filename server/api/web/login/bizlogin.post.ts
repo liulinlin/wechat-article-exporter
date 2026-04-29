@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { request } from '#shared/utils/request';
 import { getCookieFromResponse, getCookiesFromRequest } from '~/server/utils/CookieStore';
+import { updateMpCookieNickname } from '~/server/kv/cookie';
 import { proxyMpRequest } from '~/server/utils/proxy-request';
 
 export default defineEventHandler(async event => {
@@ -49,6 +50,8 @@ export default defineEventHandler(async event => {
       err: '获取公众号昵称失败，请稍后重试',
     };
   }
+
+  await updateMpCookieNickname(authKey, nick_name);
 
   const body = JSON.stringify({
     nickname: nick_name,

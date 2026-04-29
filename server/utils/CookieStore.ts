@@ -135,9 +135,9 @@ class CookieStore {
    * @param token
    * @param cookie 原始的 set-cookie 字符串数组
    */
-  async setCookie(authKey: string, token: string, cookie: string[]): Promise<boolean> {
+  async setCookie(authKey: string, token: string, cookie: string[], nickname?: string): Promise<boolean> {
     const accountCookie = new AccountCookie(token, cookie);
-    return await setMpCookie(authKey, accountCookie.toJSON());
+    return await setMpCookie(authKey, { ...accountCookie.toJSON(), nickname });
   }
 
   /**

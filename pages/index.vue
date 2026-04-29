@@ -7,8 +7,23 @@ const loading = ref(false);
 const msg = ref('');
 const authKey = ref('');
 const timer = ref<number | null>(null);
+const sessions = ref<{ authKey: string; nickname: string }[]>([]);
+const showLogin = ref(false);
+const copiedKey = ref('');
 
-onMounted(() => getQrcode());
+onMounted(async () => {
+  loading.value = true;
+  try {
+    const resp = await request<{ sessions: { authKey: string }[] }>('/api/public/v1/sessions');
+    sessions.value = resp.sessions ?? [];
+    if (sessions.value.length === 0) {
+      showLogin.value = true;
+      await getQrcode();
+    }
+  } finally {
+    loading.value = false;
+  }
+});
 onUnmounted(() => { if (timer.value) clearTimeout(timer.value); });
 
 async function getQrcode() {
@@ -65,11 +80,34 @@ async function bizLogin() {
     msg.value = `登录成功：${resp.nickname}`;
     qrcodeSrc.value = '';
     if (timer.value) clearTimeout(timer.value);
+    showLogin.value = false;
+    sessions.value = [{ authKey: authKey.value, nickname: resp.nickname }, ...sessions.value];
   } catch (e: any) {
     msg.value = e.message;
   } finally {
     loading.value = false;
   }
+}
+
+function startNewLogin() {
+  showLogin.value = true;
+  authKey.value = '';
+  msg.value = '';
+  getQrcode();
+}
+
+function copyToClipboard(text: string) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+  } else {
+    const el = document.createElement('textarea');
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+  }
+  copiedKey.value = text;
 }
 </script>
 
@@ -77,22 +115,49 @@ async function bizLogin() {
   <div class="flex flex-col items-center justify-center min-h-screen gap-6 p-8">
     <h1 class="text-2xl font-bold">微信公众号登录</h1>
 
-    <div class="flex flex-col items-center gap-3 w-80">
-      <UIcon v-if="loading" name="i-lucide:loader" :size="28" class="animate-spin text-slate-500" />
-      <p v-if="msg" :class="authKey ? 'text-green-600' : 'text-slate-600'">{{ msg }}</p>
-      <img v-if="qrcodeSrc" :src="qrcodeSrc" alt="登录二维码" class="w-64 rounded-md border" />
+    <UIcon v-if="loading && sessions.length === 0" name="i-lucide:loader" :size="28" class="animate-spin text-slate-500" />
 
-      <template v-if="authKey">
-        <div class="w-full mt-2">
-          <p class="text-sm text-slate-500 mb-1">Auth Key（API 调用凭证）：</p>
-          <UInput :value="authKey" readonly class="font-mono text-sm" />
+    <!-- 已有 session 列表 -->
+    <template v-if="!showLogin && sessions.length > 0">
+      <div class="w-full max-w-sm flex flex-col gap-3">
+        <p class="text-slate-600 text-sm">已登录的 Auth Key（有效期 4 天，点击复制）：</p>
+        <div
+          v-for="s in sessions"
+          :key="s.authKey"
+          class="px-3 py-2 rounded border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100"
+          @click="() => copyToClipboard(s.authKey)"
+        >
+          <div v-if="s.nickname" class="text-sm font-medium text-slate-700 mb-1">{{ s.nickname }}</div>
+          <div class="font-mono text-xs text-slate-500 select-all">{{ s.authKey }}</div>
+          <span v-if="copiedKey === s.authKey" class="text-green-500 text-xs">已复制</span>
         </div>
-        <UButton variant="outline" @click="getQrcode">重新登录</UButton>
-      </template>
+        <UButton variant="outline" class="mt-2" @click="startNewLogin">新增登录</UButton>
+      </div>
+    </template>
 
-      <UButton v-else-if="!loading && msg && !qrcodeSrc" variant="outline" @click="getQrcode">
-        重新获取二维码
-      </UButton>
-    </div>
+    <!-- 扫码登录 -->
+    <template v-if="showLogin">
+      <div class="flex flex-col items-center gap-3 w-80">
+        <UIcon v-if="loading" name="i-lucide:loader" :size="28" class="animate-spin text-slate-500" />
+        <p v-if="msg" :class="authKey ? 'text-green-600' : 'text-slate-600'">{{ msg }}</p>
+        <img v-if="qrcodeSrc" :src="qrcodeSrc" alt="登录二维码" class="w-64 rounded-md border" />
+
+        <template v-if="authKey">
+          <div class="w-full mt-2">
+            <p class="text-sm text-slate-500 mb-1">Auth Key（API 调用凭证）：</p>
+            <UInput :value="authKey" readonly class="font-mono text-sm" />
+          </div>
+          <UButton variant="outline" @click="getQrcode">重新登录</UButton>
+        </template>
+
+        <UButton v-else-if="!loading && msg && !qrcodeSrc" variant="outline" @click="getQrcode">
+          重新获取二维码
+        </UButton>
+
+        <UButton v-if="sessions.length > 0" variant="ghost" size="sm" @click="showLogin = false">
+          返回
+        </UButton>
+      </div>
+    </template>
   </div>
 </template>
