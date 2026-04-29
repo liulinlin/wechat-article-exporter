@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import { request } from '#shared/utils/request';
 import { getCookieFromResponse, getCookiesFromRequest } from '~/server/utils/CookieStore';
-import { updateMpCookieNickname } from '~/server/kv/cookie';
+import { deleteMpCookie, getMpCookie, setMpCookie } from '~/server/kv/cookie';
 import { proxyMpRequest } from '~/server/utils/proxy-request';
 
 export default defineEventHandler(async event => {
@@ -51,14 +51,24 @@ export default defineEventHandler(async event => {
     };
   }
 
-  await updateMpCookieNickname(authKey, nick_name);
+  const nicknameKey = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nick_name))
+    .then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32));
 
-  const body = JSON.stringify({
-    nickname: nick_name,
-    avatar: head_img,
-    expires: dayjs().add(4, 'days').toString(),
-  });
+  // 用固定的 nickname MD5 key 重新存储，删除临时 key
+  const existing = await getMpCookie(authKey);
+  if (existing) {
+    await setMpCookie(nicknameKey, { ...existing, nickname: nick_name });
+    await deleteMpCookie(authKey);
+  }
+
+  const expires = dayjs().add(4, 'days').toString();
+  const body = JSON.stringify({ nickname: nick_name, avatar: head_img, expires });
   const headers = new Headers(response.headers);
+  // 重建 set-cookie，过滤掉旧的 auth-key，设置新的固定 MD5 key
+  const newSetCookies = headers.getSetCookie().filter(c => !c.startsWith('auth-key='));
+  headers.delete('set-cookie');
+  for (const c of newSetCookies) headers.append('set-cookie', c);
+  headers.append('set-cookie', `auth-key=${nicknameKey}; Path=/; Expires=${expires}; Secure; HttpOnly`);
   headers.set('Content-Length', new TextEncoder().encode(body).length.toString());
   return new Response(body, { headers: headers });
 });

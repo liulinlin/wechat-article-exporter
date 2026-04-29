@@ -9,12 +9,10 @@ const authKey = ref('');
 const timer = ref<number | null>(null);
 const sessions = ref<{ authKey: string; nickname: string }[]>([]);
 const showLogin = ref(false);
-const copiedKey = ref('');
-
 onMounted(async () => {
   loading.value = true;
   try {
-    const resp = await request<{ sessions: { authKey: string }[] }>('/api/public/v1/sessions');
+    const resp = await request<{ sessions: { authKey: string; nickname: string }[] }>('/api/public/v1/sessions');
     sessions.value = resp.sessions ?? [];
     if (sessions.value.length === 0) {
       showLogin.value = true;
@@ -96,19 +94,7 @@ function startNewLogin() {
   getQrcode();
 }
 
-function copyToClipboard(text: string) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text);
-  } else {
-    const el = document.createElement('textarea');
-    el.value = text;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand('copy');
-    document.body.removeChild(el);
-  }
-  copiedKey.value = text;
-}
+
 </script>
 
 <template>
@@ -120,16 +106,9 @@ function copyToClipboard(text: string) {
     <!-- 已有 session 列表 -->
     <template v-if="!showLogin && sessions.length > 0">
       <div class="w-full max-w-sm flex flex-col gap-3">
-        <p class="text-slate-600 text-sm">已登录的 Auth Key（有效期 4 天，点击复制）：</p>
-        <div
-          v-for="s in sessions"
-          :key="s.authKey"
-          class="px-3 py-2 rounded border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100"
-          @click="() => copyToClipboard(s.authKey)"
-        >
-          <div v-if="s.nickname" class="text-sm font-medium text-slate-700 mb-1">{{ s.nickname }}</div>
-          <div class="font-mono text-xs text-slate-500 select-all">{{ s.authKey }}</div>
-          <span v-if="copiedKey === s.authKey" class="text-green-500 text-xs">已复制</span>
+        <p class="text-slate-600 text-sm">已登录的公众号：</p>
+        <div v-for="s in sessions" :key="s.authKey" class="px-3 py-2 rounded border border-slate-200 bg-slate-50">
+          <div class="text-sm font-medium text-slate-700">{{ s.nickname || s.authKey }}</div>
         </div>
         <UButton variant="outline" class="mt-2" @click="startNewLogin">新增登录</UButton>
       </div>
@@ -143,10 +122,6 @@ function copyToClipboard(text: string) {
         <img v-if="qrcodeSrc" :src="qrcodeSrc" alt="登录二维码" class="w-64 rounded-md border" />
 
         <template v-if="authKey">
-          <div class="w-full mt-2">
-            <p class="text-sm text-slate-500 mb-1">Auth Key（API 调用凭证）：</p>
-            <UInput :value="authKey" readonly class="font-mono text-sm" />
-          </div>
           <UButton variant="outline" @click="getQrcode">重新登录</UButton>
         </template>
 
